@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aided Control</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+        .container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+        canvas {
+            border: 1px solid black;
+        }
+        .controls {
+            margin-top: 20px;
+        }
+        button {
+            margin-right: 10px;
+            padding: 10px 20px;
+            font-size: 16px;
+        }
+        .info {
+            margin-top: 20px;
+            font-size: 18px;
+            color: green;
+        }
+        input[type="file"] {
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>Aided Control Web Interface</h1>
+    <div class="parameters">
+        <label for="unit">Unit:</label>
+        <input type="number" id="unit" value="25"><br>
+        <label for="t">t:</label>
+        <input type="number" id="t" value="250"><br>
+        <label for="q">Q:</label>
+        <input type="number" id="q" value="0.5" step="0.1"><br>
+        <label for="d">D:</label>
+        <input type="number" id="d" value="1"><br>
+        <label for="v">V:</label>
+        <input type="number" id="v" value="1"><br>
+        <label for="a">a:</label>
+        <input type="number" id="a" value="1"><br>
+        <label for="xmin">X Min:</label>
+        <input type="number" id="xmin" value="0"><br>
+        <label for="ymin">Y Min:</label>
+        <input type="number" id="ymin" value="0"><br>
+        <label for="xmax">X Max:</label>
+        <input type="number" id="xmax" value="20"><br>
+        <label for="ymax">Y Max:</label>
+        <input type="number" id="ymax" value="20"><br>
+        <label for="particle-number">Particle Number:</label>
+        <input type="number" id="particle-number" value="2000"><br>
+        <label for="step-size">Step Size:</label>
+        <input type="number" id="step-size" value="1"><br>
+        <label for="size">Size:</label>
+        <input type="number" id="size" value="1"><br>
+        <input type="file" id="map-upload" accept=".mat">
+        <button onclick="upload()">Upload</button>
+    </div>
+    <canvas id="maze-canvas" width="600" height="600"></canvas>
+    <div class="controls">
+        <button id="start-btn" disabled>START</button>
+        <button id="continue-btn" disabled>CONTINUE</button>
+        <button id="execute-btn" disabled>EXECUTE</button>
+        <button id="next-btn" disabled>NEXT</button>
+    </div>
+    <div class="info" id="info-text">Click UPLOAD to start</div>
+</div>
+
+<script>
+    const socket = io();
+    let canvas = document.getElementById('maze-canvas');
+    let ctx = canvas.getContext('2d');
+
+    function upload() {
+        const fileInput = document.getElementById('map-upload');
+        const formData = new FormData();
+        formData.append('file', fileInput.files[0]);
+        fetch('/upload', {
+            method: 'POST',
+            body: formData
+        }).then(response => response.json()).then(data => {
+            console.log('Success:', data);
+            enableButtons(['start']); // 启用START按钮
+        });
+    }
+
+
+<!--    function drawShape(shape) {-->
+<!--        switch (shape.type) {-->
+<!--            case 'rect':-->
+<!--                ctx.fillStyle = shape.fill || 'transparent';-->
+<!--                ctx.fillRect(shape.x, shape.y, shape.width, shape.height);-->
+<!--                break;-->
+<!--            case 'oval':-->
+<!--                ctx.beginPath();-->
+<!--                ctx.arc(shape.x, shape.y, shape.radius, 0, Math.PI * 2);-->
+<!--                ctx.strokeStyle = shape.outline || 'transparent';-->
+<!--                ctx.stroke();-->
+<!--                ctx.fillStyle = shape.fill || 'transparent';-->
+<!--                ctx.fill();-->
+<!--                break;-->
+<!--            case 'line':-->
+<!--                ctx.beginPath();-->
+<!--                ctx.moveTo(shape.x1, shape.y1);-->
+<!--                ctx.lineTo(shape.x2, shape.y2);-->
+<!--                ctx.stroke();-->
+<!--                break;-->
+<!--            case 'polygon':-->
+<!--                ctx.beginPath();-->
+<!--                ctx.moveTo(shape.points[0], shape.points[1]);-->
+<!--                for (let i = 2; i < shape.points.length; i += 2) {-->
+<!--                    ctx.lineTo(shape.points[i], shape.points[i + 1]);-->
+<!--                }-->
+<!--                ctx.closePath();-->
+<!--                ctx.fillStyle = shape.fill;-->
+<!--                ctx.fill();-->
+<!--                break;-->
+<!--            case 'delete':-->
+<!--                // 这个案例可能不需要做任何事情，因为socket.on('draw')已经清空了画布-->
+<!--                break;-->
+<!--            default:-->
+<!--                console.log('Unknown shape:', shape);-->
+<!--        }-->
+<!--    }-->
+    function drawShape(shape) {
+        switch (shape.type) {
+            case 'rect':
+                ctx.fillStyle = shape.fill || 'transparent';
+                ctx.fillRect(shape.x, shape.y, shape.width, shape.height);
+                break;
+            case 'oval':
+                ctx.beginPath();
+                ctx.arc(shape.x, shape.y, shape.radius, 0, Math.PI * 2);
+                ctx.strokeStyle = shape.outline || 'transparent';
+                ctx.stroke();
+                ctx.fillStyle = shape.fill || 'transparent';
+                ctx.fill();
+                break;
+            case 'line':
+                ctx.beginPath();
+                ctx.moveTo(shape.x1, shape.y1);
+                ctx.lineTo(shape.x2, shape.y2);
+                ctx.stroke();
+                break;
+            case 'polygon':
+                ctx.beginPath();
+                ctx.moveTo(shape.points[0], shape.points[1]);
+                for (let i = 2; i < shape.points.length; i += 2) {
+                    ctx.lineTo(shape.points[i], shape.points[i + 1]);
+                }
+                ctx.closePath();
+                ctx.fillStyle = shape.fill;
+                ctx.fill();
+                break;
+            case 'clear':
+                ctx.clearRect(0, 0, canvas.width, canvas.height); // 清空画布
+                break;
+            default:
+                console.log('Unknown shape:', shape);
+        }
+    }
+
+
+    socket.on('draw', function(data) {
+<!--        ctx.clearRect(0, 0, canvas.width, canvas.height);-->
+        data.forEach(drawShape);
+    });
+
+    socket.on('info', function(message) {
+        console.log("Info message:", message);
+        var infoElement = document.getElementById('info-text');
+        if (infoElement) {
+            infoElement.innerText = message;
+        } else {
+            console.error('Info element not found');
+        }
+    });
+
+    socket.on('enable_button', function(buttonIds) {
+        enableButtons(buttonIds);
+    });
+
+    socket.on('disable_buttons', function(buttonIds) {
+        buttonIds.forEach(id => {
+            document.getElementById(`${id}-btn`).disabled = true;
+        });
+    });
+
+<!--    function enableButtons(buttonIds) {-->
+<!--        buttonIds.forEach(id => {-->
+<!--            document.getElementById(`${id}-btn`).disabled = false;-->
+<!--        });-->
+<!--    }-->
+    function enableButtons(buttonIds) {
+        buttonIds.forEach(id => {
+            const button = document.getElementById(`${id}-btn`);
+            if (button) {
+                button.disabled = false;
+            } else {
+                console.error(`Button with ID ${id} not found`);
+            }
+        });
+    }
+
+    document.getElementById('start-btn').addEventListener('click', () => {
+        socket.emit('start');
+    });
+
+    document.getElementById('continue-btn').addEventListener('click', () => {
+        socket.emit('continue');
+    });
+
+    document.getElementById('execute-btn').addEventListener('click', () => {
+        socket.emit('execute');
+    });
+
+    document.getElementById('next-btn').addEventListener('click', () => {
+        socket.emit('next');
+    });
+
+    canvas.addEventListener('click', (event) => {
+        const rect = canvas.getBoundingClientRect();
+        const x = event.clientX - rect.left;
+        const y = event.clientY - rect.top;
+        socket.emit('click', { x, y });
+    });
+</script>
+</body>
+</html>
+
